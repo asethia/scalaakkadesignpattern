@@ -1,13 +1,14 @@
-# Tail recursion when function returns Future
+# Tail recursion with Akka Future
 
 **Intent**
-Scala functional language feature allows user to write recursion rather than iteration. It allows user to overcome the limitations of the call stack.
 
-It becomes challenging when a function computation returns Future in best scenario, and tail recursion is not allowed. There are multiple ways we can solve this problem, but we will leverage Akka actor to overcome this issue.
+Akka is used for asyncronous communication using akka actor system. There are cases where we have to make recursive call based on result. It is known that we should try to avoid Await.result, or Thread.sleep in akka programming.
+
+This design approach will provide alternative way of Await.result or Thread.sleep specially when you are using Akka "ask" to wait for result/responses.
 
 **Problem**
 
-Let's go through sum problem using tail recusion:
+Let's first understand how we can do tail recusion using Scala from simple sum of list of integers:
 
 ```scala
 import scala.annotation.tailrec
@@ -21,8 +22,28 @@ def sum(list:List[Int]):Int={
    sumNum(0,list)
 }
 ```
-If we rewrite same porblem (which is not IO bound) and still do with Future
+If we rewrite same problem; with assumtion of that sum is time consuming process and may take time to complete, so perform same using Asyncronous way using Future: 
 
+```scala
+import scala.annotation.tailrec
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
+def sum(list:List[Int]):Future[Int]={
+  @tailrec
+  def sumNum(acc:Future[Int],list: List[Int]): Future[Int] = list match{
+    case Nil=>Future.successful{0}
+    case head::Nil => acc.map[Int](x=>x+head)
+    case head::tail=> sumNum(acc.map[Int](x=>x+head),tail)
+  }
+  sumNum(Future.successful[Int]{0},list)
+}
+
+sum(List(1,2,3)).onComplete{
+  case Success(v)=> Console.println(v)
+  case Failure(ex)=>Console.println(ex.printStackTrace())
+}
+
+```
 
 
 **Solution**
